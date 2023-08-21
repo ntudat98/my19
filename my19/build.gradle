@@ -1,0 +1,136 @@
+buildscript {
+	repositories {
+        mavenCentral()
+	}
+
+	dependencies {
+		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:3.1.1"
+	}
+}
+
+
+plugins {
+	id 'org.springframework.boot' version '2.5.4'
+	id 'io.spring.dependency-management' version '1.1.2'
+
+}
+
+repositories {
+    mavenCentral()
+}
+
+
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'java-library'
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'maven-publish'
+apply from: 'gradle/checkstyle.gradle'
+
+dependencies {
+    implementation('org.springframework.boot:spring-boot-starter-log4j2')
+    implementation('org.owasp.encoder:encoder:1.2.3')
+    implementation 'org.springdoc:springdoc-openapi-ui:1.6.6'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'junit:junit'
+}
+
+
+group = 'myapp'
+sourceCompatibility = 11
+targetCompatibility = 11
+version = System.getenv('BUILD_ID') ? System.getenv('BUILD_ID') : '0.0.1-SNAPSHOT'
+
+jacoco {
+	toolVersion = "0.8.6"
+}
+
+
+test {
+	useJUnitPlatform()
+	finalizedBy jacocoTestReport // report is always generated after tests run
+	check.dependsOn jacocoTestCoverageVerification
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.enabled true
+		html.enabled true
+		html.enabled true
+		html.destination file("$buildDir/reports/jacoco")
+	}
+
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it,
+					exclude: [''
+
+					]
+			)
+		}))
+	}
+}
+
+jacocoTestCoverageVerification {
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it,
+					exclude: [ ''
+					]
+			)
+		}))
+	}
+	violationRules {
+		rule {
+			limit {
+				counter = 'INSTRUCTION'
+				value = 'COVEREDRATIO'
+				minimum = 0.0
+			}
+		}
+	}
+}
+
+configurations {
+	all {
+		exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+	}
+}
+
+bootJar {
+	enabled = true
+}
+
+jar {
+  enabled = false
+	manifest {
+		attributes 'Main-Class': 'myapp.My19Application'
+	}
+}
+
+
+
+
+publishing {
+	publications {
+		bootJava(MavenPublication) {
+			artifact bootJar
+		}
+	}
+
+	repositories {
+		maven {}
+	}
+}
+
+task setExecutable {
+   project.exec {
+      commandLine('chmod', '+x', './gradlew')
+   }
+}
